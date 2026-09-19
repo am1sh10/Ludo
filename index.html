@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Ludo</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ludo">
+<meta name="theme-color" content="#dfe7e4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1b24" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <main id="stage">
+    <svg id="board" viewBox="-0.4 -0.4 15.8 15.8" role="group" aria-label="Ludo board"></svg>
+  </main>
+
+  <nav id="hud" aria-label="Game controls">
+    <button class="icon-btn" id="btn-menu" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-sound" aria-label="Sound">
+      <svg id="sound-on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>
+      <svg id="sound-off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9.5l4 5M21 9.5l-4 5"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-rules" aria-label="Rules">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1.1.8-1.1 1.6"/><path d="M12 17.2h.01"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-clean" aria-label="Clean view">
+      <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <button class="icon-btn" id="btn-full" aria-label="Full screen" aria-pressed="false" hidden>
+      <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    </button>
+  </nav>
+
+  <button id="peek" aria-label="Show controls">
+    <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+  </button>
+
+  <section id="setup" class="screen" aria-label="New game">
+    <div class="setup-inner">
+      <h1>Ludo</h1>
+      <p class="sub">How many people are playing?</p>
+      <button class="resume" id="resume" hidden>
+        <span class="name">Resume game</span>
+        <span class="cap" id="resume-cap"></span>
+      </button>
+      <div class="modes">
+        <button class="mode" data-mode="1p"><span data-glyph="1p"></span><span class="name">1 Player</span><span class="cap">Vs the computer</span></button>
+        <button class="mode" data-mode="2p"><span data-glyph="2p"></span><span class="name">2 Players</span><span class="cap">Face to face</span></button>
+        <button class="mode" data-mode="3p"><span data-glyph="3p"></span><span class="name">3 Players</span><span class="cap">Three people</span></button>
+        <button class="mode" data-mode="4p"><span data-glyph="4p"></span><span class="name">4 Players</span><span class="cap">Four people</span></button>
+      </div>
+      <div class="level">
+        <span>Computer level</span>
+        <div class="seg" role="group" aria-label="Computer level">
+          <button data-level="easy" aria-pressed="false">Easy</button>
+          <button data-level="normal" aria-pressed="true">Normal</button>
+        </div>
+      </div>
+      <div class="hint" id="install-hint" hidden>
+        <p>For full screen, tap Share, then Add to Home Screen, and open Ludo from your Home Screen.</p>
+        <button id="hint-close" aria-label="Dismiss tip">&times;</button>
+      </div>
+      <button class="linkish" id="setup-rules">How this game is played</button>
+    </div>
+  </section>
+
+  <section id="menu" class="sheet" hidden aria-label="Menu">
+    <div class="panel">
+      <h2>Menu</h2>
+      <button class="btn primary" id="m-resume">Back to the game</button>
+      <button class="btn" id="m-sound"><span>Sound</span><span class="state" id="m-sound-state">On</span></button>
+      <button class="btn" id="m-clean"><span>Clean view</span><span class="state">Hide buttons</span></button>
+      <button class="btn" id="m-full" hidden><span>Full screen</span><span class="state" id="m-full-state">Off</span></button>
+      <button class="btn" id="m-rules">Rules</button>
+      <button class="btn" id="m-restart">Restart this game</button>
+      <button class="btn danger" id="m-players">Change players</button>
+    </div>
+  </section>
+
+  <section id="rules" class="sheet" hidden aria-label="Rules">
+    <div class="panel">
+      <h2>How this game is played</h2>
+      <ul>
+        <li>Everyone rolls at the start. The first 6 goes first, and that 6 counts as a real move.</li>
+        <li>Roll a 6 to bring a token out of your base.</li>
+        <li>Roll again after a 6, a capture, or getting a token home.</li>
+        <li>Three 6s in a row lose your turn.</li>
+        <li>Land on an opponent's token to send it back to its base. If two are stacked, both go back.</li>
+        <li>Squares with a star, and each color's start square, are safe. Tokens share them.</li>
+        <li>Tokens of the same color can stack, and they never block anyone.</li>
+        <li>You need the exact roll to reach the center.</li>
+        <li>The first player to bring all four tokens home wins.</li>
+      </ul>
+      <button class="btn primary" id="rules-close" style="justify-content:center">Got it</button>
+    </div>
+  </section>
+
+  <section id="win" class="sheet" hidden aria-label="Game over">
+    <div class="panel win-card" id="win-card">
+      <div class="win-swatch" id="win-swatch"></div>
+      <h2 id="win-title">Red wins</h2>
+      <button class="btn primary" id="w-again" style="justify-content:center">Play again</button>
+      <button class="btn" id="w-change" style="justify-content:center">Change players</button>
+    </div>
+  </section>
+
+  <section id="confirm" class="sheet" hidden aria-label="Confirm">
+    <div class="panel">
+      <h2 id="confirm-title">Leave this game?</h2>
+      <p id="confirm-text"></p>
+      <div class="row">
+        <button class="btn" id="c-cancel">Keep playing</button>
+        <button class="btn danger" id="c-ok">Leave</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="banner" hidden><span>A new version is ready.</span><button id="banner-btn">Update</button></div>
+</div>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
