@@ -1,10 +1,11 @@
 /* Offline cache for Ludo. Bump CACHE when you publish a new version. */
-const CACHE = 'ludo-v1';
+const CACHE = 'ludo-v2';
 const ASSETS = [
   './',
   'index.html',
   'style.css',
   'engine.js',
+  'fx.js',
   'app.js',
   'manifest.webmanifest',
   'icons/icon-192.png',

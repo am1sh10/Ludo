@@ -75,16 +75,17 @@
       v: 1,
       seats: s,
       cpu: (cpuSeats || []).slice(),
-      level: (opts && opts.level) || 'normal',
+      level: (opts && opts.level) || 'medium',
       tokens: {},
       shown: {},          // last rolled value per seat (for display)
+      rolls: {},          // per seat: how many times each face 1..6 has been rolled (dice stats)
       turn: s[0],
       phase: 'opening',   // opening | roll | move | over
       dice: null,
       sixes: 0,
       winner: null
     };
-    s.forEach(function (seat) { state.tokens[seat] = [BASE, BASE, BASE, BASE]; state.shown[seat] = null; });
+    s.forEach(function (seat) { state.tokens[seat] = [BASE, BASE, BASE, BASE]; state.shown[seat] = null; state.rolls[seat] = [0, 0, 0, 0, 0, 0]; });
     return state;
   }
 
@@ -138,6 +139,9 @@
   function applyRoll(state, value) {
     var ev = [], seat = state.turn;
     if (value < 1 || value > 6) throw new Error('bad dice value');
+    if (!state.rolls) state.rolls = {};
+    if (!state.rolls[seat]) state.rolls[seat] = [0, 0, 0, 0, 0, 0];
+    state.rolls[seat][value - 1]++;
     if (state.phase === 'opening') {
       ev.push({ type: 'roll', seat: seat, value: value });
       state.shown[seat] = value;
@@ -217,12 +221,17 @@
     return s + (rng() * 0.5);
   }
 
-  /** Pick a token index for the current seat (state.phase must be 'move'). */
+  /** Pick a token index for the current seat (state.phase must be 'move').
+   *  Levels: easy = random legal move; medium = best move half the time, random otherwise;
+   *  hard (also the old 'normal') = always the best-scoring move. Dice are never affected by level. */
   function chooseMove(state, rng) {
     rng = rng || Math.random;
     var moves = legalMoves(state);
     if (moves.length <= 1) return moves[0];
-    if (state.level === 'easy') return moves[Math.floor(rng() * moves.length)];
+    var level = state.level;
+    function anyMove() { return moves[Math.floor(rng() * moves.length)]; }
+    if (level === 'easy') return anyMove();
+    if (level === 'medium' && rng() < 0.5) return anyMove();
     var best = moves[0], bestScore = -Infinity;
     moves.forEach(function (i) {
       var sc = scoreMove(state, i, rng);
@@ -231,7 +240,23 @@
     return best;
   }
 
-  function rollDie(rng) { return 1 + Math.floor((rng || Math.random)() * 6); }
+  /** Fair die. Without a seeded rng it uses the browser's cryptographic generator (rejection sampling, no modulo bias). */
+  var webcrypto = (function () {
+    try {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) return crypto;
+      if (typeof require === 'function') { var c = require('crypto'); return c.webcrypto || null; }
+    } catch (e) { /* fall through */ }
+    return null;
+  })();
+  function rollDie(rng) {
+    if (rng) return 1 + Math.floor(rng() * 6);
+    if (webcrypto) {
+      var a = new Uint8Array(1);
+      do { webcrypto.getRandomValues(a); } while (a[0] >= 252);   // 252 = 6 * 42, so every face is equally likely
+      return 1 + (a[0] % 6);
+    }
+    return 1 + Math.floor(Math.random() * 6);
+  }
 
   return {
     BASE: BASE, FINISH: FINISH, LAST_TRACK: LAST_TRACK, TRACK_LEN: TRACK_LEN,

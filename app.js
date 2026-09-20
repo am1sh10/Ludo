@@ -40,7 +40,9 @@
     set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* ignore */ } },
     del(key) { try { localStorage.removeItem(key); } catch (e) { /* ignore */ } }
   };
-  const prefs = Object.assign({ sound: true, level: 'normal', hintDismissed: false }, store.get(PREF_KEY) || {});
+  const prefs = Object.assign({ sound: true, level: 'medium', hintDismissed: false }, store.get(PREF_KEY) || {});
+if (['easy', 'medium', 'hard'].indexOf(prefs.level) === -1) prefs.level = 'medium';   // revision 1 stored 'normal'
+const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   function savePrefs() { store.set(PREF_KEY, prefs); }
 
   /* ---------- Sound (synthesised, no files) ---------- */
@@ -84,7 +86,8 @@
       capture() { tone(380, 0, 0.36, 'sawtooth', 0.12, 70); },
       home() { [523, 659, 784].forEach((f, i) => tone(f, i * 0.09, 0.24, 'triangle', 0.16)); },
       win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, 0.32, 'triangle', 0.16)); },
-      bad() { tone(230, 0, 0.26, 'square', 0.07, 140); }
+      bad() { tone(230, 0, 0.26, 'square', 0.07, 140); },
+      good() { [392, 494, 587].forEach((f, i) => tone(f, i * 0.16, 0.34, 'sine', 0.13)); }
     };
   })();
 
@@ -409,8 +412,7 @@
     if (ev.some((e) => e.type === 'home')) Snd.home();
     layoutTokens();
     refreshAll();
-    if (ev.some((e) => e.type === 'win')) Snd.win();
-    else await sleep(160);
+    if (!ev.some((e) => e.type === 'win')) await sleep(160);
   }
 
   async function loop(my) {
@@ -451,13 +453,14 @@
     }
   }
 
-  function startGame(m, saved) {
+  function startGame(m, saved, level) {
     run++;
     pending = null; sel = null;
     Object.keys(flashes).forEach((k) => delete flashes[k]);
     mode = m;
-    G = saved || E.newGame(MODES[m].seats, MODES[m].cpu, { level: prefs.level });
-    hide($('#setup')); hide($('#win')); hide($('#menu')); hide($('#rules')); hide($('#confirm'));
+    G = saved || E.newGame(MODES[m].seats, MODES[m].cpu, { level: level || prefs.level });
+    hide($('#setup')); hide($('#win')); hide($('#menu')); hide($('#rules')); hide($('#stats')); hide($('#confirm'));
+    window.LudoFX.stop();
     setPaused(false);
     buildPieces();
     layoutTokens();
@@ -466,26 +469,91 @@
     loop(run);
   }
 
+  function tokensHome(seat) { return G.tokens[seat].filter((p) => p === E.FINISH).length; }
+  function trophySvg(color) {
+    return '<svg viewBox="0 0 100 100"><g class="bob">' +
+      '<path d="M28 14h44v22c0 14-10 24-22 24S28 50 28 36z" fill="#ffc83d" stroke="#b98800" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path d="M28 20H14c0 16 6 24 16 26M72 20h14c0 16-6 24-16 26" fill="none" stroke="#b98800" stroke-width="4" stroke-linecap="round"/>' +
+      '<rect x="44" y="60" width="12" height="14" fill="#e6a800" stroke="#b98800" stroke-width="3"/>' +
+      '<rect x="32" y="74" width="36" height="12" rx="4" fill="#ffc83d" stroke="#b98800" stroke-width="3"/>' +
+      '<circle cx="50" cy="34" r="9" fill="' + color + '" stroke="#ffffff" stroke-width="3"/></g></svg>';
+  }
+  const STAR_SVG = '<svg viewBox="0 0 100 100"><g class="bob"><path d="M50 10l11 25 27 3-20 19 6 27-24-14-24 14 6-27-20-19 27-3z" fill="#ffe08a" stroke="#d9a400" stroke-width="3" stroke-linejoin="round"/></g>' +
+    '<path d="M16 20v10M11 25h10M86 62v10M81 67h10" stroke="#d9a400" stroke-width="3" stroke-linecap="round"/></svg>';
+
   function showWin() {
-    const w = G.winner;
-    $('#win-title').textContent = mode === '1p' ? (E.isCpu(G, w) ? 'The computer wins' : 'You win') : E.NAMES[w] + ' wins';
-    $('#win-swatch').style.background = COLORS[w].main;
-    $('#win-card').style.setProperty('--rot', seatRot(w) + 'deg');
+    const my = run, w = G.winner;
+    const computerWon = mode === '1p' && E.isCpu(G, w);
+    const humanWon1p = mode === '1p' && !computerWon;
+    $('#win-title').textContent = humanWon1p ? 'You win!' : computerWon ? 'Good game' : E.NAMES[w] + ' wins!';
+    $('#win-sub').textContent = humanWon1p ? 'Nicely played.' : computerWon ? 'The computer takes this one.' : 'Well played, everyone.';
+    $('#win-art').innerHTML = computerWon ? STAR_SVG : trophySvg(COLORS[w].main);
+    $('#w-again').textContent = computerWon ? 'Rematch' : 'Play again';
+    let rot = seatRot(w);
+    if ((rot === 90 || rot === 270) && Math.min(window.innerWidth, window.innerHeight) < 600) rot = 0;   // too small to turn sideways
+    $('#win-card').style.setProperty('--rot', rot + 'deg');
+
+    const list = $('#win-list');
+    list.textContent = '';
+    G.seats.slice().sort((a, b) => (b === w) - (a === w) || tokensHome(b) - tokensHome(a)).forEach((seat) => {
+      const li = document.createElement('li');
+      if (seat === w) li.className = 'first';
+      const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = COLORS[seat].main;
+      const name = document.createElement('span'); name.textContent = seatName(seat);
+      const right = document.createElement('span'); right.className = 'right'; right.textContent = tokensHome(seat) + ' of 4 home';
+      li.appendChild(dot); li.appendChild(name); li.appendChild(right);
+      list.appendChild(li);
+    });
     refreshAll();
-    setTimeout(() => show($('#win')), reduceMotion ? 0 : 900);
+    setTimeout(() => {
+      if (my !== run) return;
+      show($('#win'));
+      if (computerWon) { Snd.good(); window.LudoFX.consolation(); }
+      else { Snd.win(); window.LudoFX.celebrate([COLORS[w].main, COLORS[w].tint]); }
+    }, reduceMotion ? 0 : 900);
+  }
+
+  /* ---------- Dice stats ---------- */
+  function renderStats() {
+    const body = $('#stats-body');
+    body.textContent = '';
+    G.seats.forEach((seat) => {
+      const counts = (G.rolls && G.rolls[seat]) || [0, 0, 0, 0, 0, 0];
+      const total = counts.reduce((a, b) => a + b, 0);
+      const avg = total ? counts.reduce((a, c, i) => a + c * (i + 1), 0) / total : 0;
+      const max = Math.max(1, ...counts);
+      const block = document.createElement('div'); block.className = 'stat-block';
+      const head = document.createElement('div'); head.className = 'stat-head';
+      const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = COLORS[seat].main;
+      const nm = document.createElement('span'); nm.textContent = seatName(seat);
+      const meta = document.createElement('span'); meta.className = 'meta';
+      meta.textContent = total + (total === 1 ? ' roll' : ' rolls') + (total ? ', average ' + avg.toFixed(1) : '');
+      head.appendChild(dot); head.appendChild(nm); head.appendChild(meta);
+      const bars = document.createElement('div'); bars.className = 'bars';
+      counts.forEach((c) => {
+        const bar = document.createElement('div'); bar.className = 'bar';
+        const num = document.createElement('b'); num.textContent = c;
+        const fill = document.createElement('i'); fill.style.height = (c ? Math.max(6, 62 * c / max) : 0) + '%'; fill.style.background = COLORS[seat].main;
+        bar.appendChild(num); bar.appendChild(fill); bars.appendChild(bar);
+      });
+      const faces = document.createElement('div'); faces.className = 'faces';
+      for (let f = 1; f <= 6; f++) { const d = document.createElement('span'); d.textContent = f; faces.appendChild(d); }
+      block.appendChild(head); block.appendChild(bars); block.appendChild(faces);
+      body.appendChild(block);
+    });
   }
 
   /* ---------- Sheets and dialogs ---------- */
   const show = (n) => { n.hidden = false; };
   const hide = (n) => { n.hidden = true; };
   function openSheet(id) {
-    ['menu', 'rules'].forEach((s) => hide($('#' + s)));
+    ['menu', 'rules', 'stats'].forEach((s) => hide($('#' + s)));
     show($('#' + id));
     if (G && G.phase !== 'over' && $('#setup').hidden) setPaused(true);
   }
   function closeSheet(id) {
     hide($('#' + id));
-    if ($('#menu').hidden && $('#rules').hidden && $('#confirm').hidden) setPaused(false);
+    if ($('#menu').hidden && $('#rules').hidden && $('#stats').hidden && $('#confirm').hidden) setPaused(false);
   }
   let confirmRes = null;
   function ask(title, text, okLabel, cancelLabel) {
@@ -502,7 +570,8 @@
     run++;
     pending = null; sel = null;
     setPaused(false);
-    hide($('#menu')); hide($('#rules')); hide($('#confirm')); hide($('#win'));
+    hide($('#menu')); hide($('#rules')); hide($('#stats')); hide($('#confirm')); hide($('#win'));
+    window.LudoFX.stop();
     renderResume();
     show($('#setup'));
   }
@@ -528,7 +597,8 @@
     if (!s) { hide(btn); return; }
     const m = s.mode, g = s.G, cpuTurn = g.cpu.indexOf(g.turn) !== -1;
     const who = m === '1p' ? (cpuTurn ? "the computer's turn" : 'your turn') : E.NAMES[g.turn] + "'s turn";
-    $('#resume-cap').textContent = MODES[m].label + ', ' + who;
+    const lvl = m === '1p' ? ' (' + (LEVELS[g.level] || 'Medium') + ')' : '';
+    $('#resume-cap').textContent = MODES[m].label + lvl + ', ' + who;
     show(btn);
   }
 
@@ -582,6 +652,12 @@
     $('#rules-close').addEventListener('click', () => closeSheet('rules'));
     $('#m-resume').addEventListener('click', () => closeSheet('menu'));
     $('#m-rules').addEventListener('click', () => openSheet('rules'));
+    $('#m-stats').addEventListener('click', () => { renderStats(); openSheet('stats'); });
+    $('#stats-close').addEventListener('click', () => closeSheet('stats'));
+    $('#m-test').addEventListener('click', () => {
+      if (!prefs.sound) { prefs.sound = true; savePrefs(); syncSound(); }
+      Snd.init(); Snd.dice(); setTimeout(Snd.home, 520);
+    });
     $('#btn-sound').addEventListener('click', () => { prefs.sound = !prefs.sound; savePrefs(); syncSound(); Snd.init(); Snd.tick(); });
     $('#m-sound').addEventListener('click', () => { prefs.sound = !prefs.sound; savePrefs(); syncSound(); Snd.init(); Snd.tick(); });
     $('#btn-clean').addEventListener('click', () => setClean(true));
@@ -591,7 +667,7 @@
     $('#m-full').addEventListener('click', toggleFullscreen);
     $('#m-restart').addEventListener('click', async () => {
       hide($('#menu'));
-      if (await ask('Restart this game?', 'Everyone starts again from the beginning.', 'Restart')) startGame(mode);
+      if (await ask('Restart this game?', 'Everyone starts again from the beginning.', 'Restart')) startGame(mode, null, G.level === 'normal' ? 'hard' : G.level);
       else closeSheet('confirm');
     });
     $('#m-players').addEventListener('click', async () => {
@@ -601,9 +677,9 @@
     });
     $('#c-ok').addEventListener('click', () => answer(true));
     $('#c-cancel').addEventListener('click', () => answer(false));
-    $('#w-again').addEventListener('click', () => startGame(mode));
+    $('#w-again').addEventListener('click', () => startGame(mode, null, G.level === 'normal' ? 'hard' : G.level));
     $('#w-change').addEventListener('click', showSetup);
-    ['menu', 'rules'].forEach((id) => $('#' + id).addEventListener('click', (e) => { if (e.target === e.currentTarget) closeSheet(id); }));
+    ['menu', 'rules', 'stats'].forEach((id) => $('#' + id).addEventListener('click', (e) => { if (e.target === e.currentTarget) closeSheet(id); }));
 
     document.addEventListener('pointerdown', Snd.init, { passive: true });
     ['fullscreenchange', 'webkitfullscreenchange'].forEach((n) => document.addEventListener(n, () => { syncFullscreenUi(); fit(); }));

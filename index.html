@@ -63,7 +63,8 @@
         <span>Computer level</span>
         <div class="seg" role="group" aria-label="Computer level">
           <button data-level="easy" aria-pressed="false">Easy</button>
-          <button data-level="normal" aria-pressed="true">Normal</button>
+          <button data-level="medium" aria-pressed="true">Medium</button>
+          <button data-level="hard" aria-pressed="false">Hard</button>
         </div>
       </div>
       <div class="hint" id="install-hint" hidden>
@@ -81,6 +82,9 @@
       <button class="btn" id="m-sound"><span>Sound</span><span class="state" id="m-sound-state">On</span></button>
       <button class="btn" id="m-clean"><span>Clean view</span><span class="state">Hide buttons</span></button>
       <button class="btn" id="m-full" hidden><span>Full screen</span><span class="state" id="m-full-state">Off</span></button>
+      <button class="btn" id="m-test"><span>Test sound</span><span class="state">Play a chime</span></button>
+      <p class="note">No sound? Check the ringer switch on the side of your device, or the mute button in Control Center.</p>
+      <button class="btn" id="m-stats">Dice stats</button>
       <button class="btn" id="m-rules">Rules</button>
       <button class="btn" id="m-restart">Restart this game</button>
       <button class="btn danger" id="m-players">Change players</button>
@@ -105,10 +109,22 @@
     </div>
   </section>
 
+  <section id="stats" class="sheet" hidden aria-label="Dice stats">
+    <div class="panel">
+      <h2>Dice stats</h2>
+      <p>How often each face has come up this game. Over a whole game each face should land about one time in six, but short games wobble a lot.</p>
+      <div id="stats-body"></div>
+      <button class="btn primary" id="stats-close" style="justify-content:center">Close</button>
+    </div>
+  </section>
+
   <section id="win" class="sheet" hidden aria-label="Game over">
+    <canvas id="fx" aria-hidden="true"></canvas>
     <div class="panel win-card" id="win-card">
-      <div class="win-swatch" id="win-swatch"></div>
+      <div class="win-art" id="win-art" aria-hidden="true"></div>
       <h2 id="win-title">Red wins</h2>
+      <p id="win-sub"></p>
+      <ul class="results" id="win-list"></ul>
       <button class="btn primary" id="w-again" style="justify-content:center">Play again</button>
       <button class="btn" id="w-change" style="justify-content:center">Change players</button>
     </div>
@@ -128,6 +144,7 @@
   <div id="banner" hidden><span>A new version is ready.</span><button id="banner-btn">Update</button></div>
 </div>
 <script src="engine.js"></script>
+<script src="fx.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
