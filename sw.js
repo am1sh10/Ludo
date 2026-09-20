@@ -1,5 +1,5 @@
 /* Offline cache for Ludo. Bump CACHE when you publish a new version. */
-const CACHE = 'ludo-v2';
+const CACHE = 'ludo-v3';
 const ASSETS = [
   './',
   'index.html',

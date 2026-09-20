@@ -48,18 +48,31 @@
   <section id="setup" class="screen" aria-label="New game">
     <div class="setup-inner">
       <h1>Ludo</h1>
-      <p class="sub">How many people are playing?</p>
+      <p class="sub">Who is playing?</p>
       <button class="resume" id="resume" hidden>
         <span class="name">Resume game</span>
         <span class="cap" id="resume-cap"></span>
       </button>
-      <div class="modes">
-        <button class="mode" data-mode="1p"><span data-glyph="1p"></span><span class="name">1 Player</span><span class="cap">Vs the computer</span></button>
-        <button class="mode" data-mode="2p"><span data-glyph="2p"></span><span class="name">2 Players</span><span class="cap">Face to face</span></button>
-        <button class="mode" data-mode="3p"><span data-glyph="3p"></span><span class="name">3 Players</span><span class="cap">Three people</span></button>
-        <button class="mode" data-mode="4p"><span data-glyph="4p"></span><span class="name">4 Players</span><span class="cap">Four people</span></button>
+      <div class="picker">
+        <div class="pick-row">
+          <span class="pick-label">People</span>
+          <div class="seg wide" id="seg-people" role="group" aria-label="Number of people">
+            <button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button>
+          </div>
+        </div>
+        <div class="pick-row">
+          <span class="pick-label">Computers</span>
+          <div class="seg wide" id="seg-cpu" role="group" aria-label="Number of computer players">
+            <button data-n="0">0</button><button data-n="1">1</button><button data-n="2">2</button><button data-n="3">3</button>
+          </div>
+        </div>
       </div>
-      <div class="level">
+      <div class="preview">
+        <svg id="pv" viewBox="0 0 160 160" aria-hidden="true"></svg>
+        <p class="pv-title" id="pv-title"></p>
+        <p class="pv-cap" id="pv-cap"></p>
+      </div>
+      <div class="level" id="level-row">
         <span>Computer level</span>
         <div class="seg" role="group" aria-label="Computer level">
           <button data-level="easy" aria-pressed="false">Easy</button>
@@ -67,6 +80,7 @@
           <button data-level="hard" aria-pressed="false">Hard</button>
         </div>
       </div>
+      <button class="btn primary start" id="start">Start game</button>
       <div class="hint" id="install-hint" hidden>
         <p>For full screen, tap Share, then Add to Home Screen, and open Ludo from your Home Screen.</p>
         <button id="hint-close" aria-label="Dismiss tip">&times;</button>

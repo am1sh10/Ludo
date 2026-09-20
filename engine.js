@@ -248,6 +248,17 @@
     } catch (e) { /* fall through */ }
     return null;
   })();
+  /** Which seats play and which of them are computers, for a chosen number of people and computers.
+   *  Total players 2..4, at least one person. People take the bottom seat first, then top, left, right,
+   *  so with two people they face each other across the table. */
+  function layout(humans, computers) {
+    var total = humans + computers;
+    if (!(humans >= 1 && computers >= 0 && total >= 2 && total <= 4)) throw new Error('need 2 to 4 players with at least one person');
+    var seats = total === 2 ? [0, 2] : total === 3 ? [0, 1, 2] : [0, 1, 2, 3];
+    var order = [0, 2, 1, 3].filter(function (s) { return seats.indexOf(s) !== -1; });
+    return { seats: seats, cpu: order.slice(humans).sort(function (a, b) { return a - b; }) };
+  }
+
   function rollDie(rng) {
     if (rng) return 1 + Math.floor(rng() * 6);
     if (webcrypto) {
@@ -265,6 +276,6 @@
     abs: abs, onTrack: onTrack, position: position,
     newGame: newGame, cloneState: cloneState, nextSeat: nextSeat, isCpu: isCpu,
     legalMoves: legalMoves, preview: preview, applyRoll: applyRoll, applyMove: applyMove,
-    chooseMove: chooseMove, rollDie: rollDie
+    chooseMove: chooseMove, rollDie: rollDie, layout: layout
   };
 });

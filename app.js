@@ -13,12 +13,6 @@
     { main: '#2f6fdd', tint: '#b1c8f4', dark: '#173f8f' }    // Blue
   ];
   const ROT = [0, 90, 180, 270];   // each seat's dice and label face the player sitting on that side
-  const MODES = {
-    '1p': { seats: [0, 2], cpu: [2], label: '1 player against the computer' },
-    '2p': { seats: [0, 2], cpu: [], label: '2 players' },
-    '3p': { seats: [0, 1, 2], cpu: [], label: '3 players' },
-    '4p': { seats: [0, 1, 2, 3], cpu: [], label: '4 players' }
-  };
   const SAVE_KEY = 'ludo.save.v1';
   const PREF_KEY = 'ludo.prefs.v1';
   const PIPS = [[-0.42, -0.42], [0.42, -0.42], [-0.42, 0], [0, 0], [0.42, 0], [-0.42, 0.42], [0.42, 0.42]];
@@ -40,7 +34,7 @@
     set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* ignore */ } },
     del(key) { try { localStorage.removeItem(key); } catch (e) { /* ignore */ } }
   };
-  const prefs = Object.assign({ sound: true, level: 'medium', hintDismissed: false }, store.get(PREF_KEY) || {});
+  const prefs = Object.assign({ sound: true, level: 'medium', hintDismissed: false, people: 1, computers: 1 }, store.get(PREF_KEY) || {});
 if (['easy', 'medium', 'hard'].indexOf(prefs.level) === -1) prefs.level = 'medium';   // revision 1 stored 'normal'
 const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   function savePrefs() { store.set(PREF_KEY, prefs); }
@@ -93,7 +87,6 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
 
   /* ---------- Game session state ---------- */
   let G = null;              // engine state
-  let mode = '1p';
   let run = 0;               // bumped whenever a game starts or is abandoned; stale loops stop
   let pending = null;        // input the loop is waiting for
   let sel = null;            // token chosen but not yet confirmed
@@ -106,11 +99,19 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   let gDest, gDice, gTokens;
   const baseEls = [];
 
-  const seatRot = (seat) => (mode === '1p' ? 0 : ROT[seat]);
-  function seatName(seat) {
-    if (mode === '1p') return E.isCpu(G, seat) ? 'Computer' : 'You';
-    return E.NAMES[seat];
+  const humansOf = (g) => g.seats.filter((x) => g.cpu.indexOf(x) === -1);
+  const soloHuman = () => humansOf(G).length === 1;
+  // With one person everything faces them; with several, each seat faces the side of the table it sits on.
+  const seatRot = (seat) => (humansOf(G).length > 1 ? ROT[seat] : 0);
+  function seatLabel(seat) {        // short text inside the seat's base
+    if (E.isCpu(G, seat)) return 'Computer';
+    return soloHuman() ? 'You' : E.NAMES[seat];
   }
+  function seatFull(seat) {         // used in lists
+    if (E.isCpu(G, seat)) return G.cpu.length === 1 ? 'Computer' : E.NAMES[seat] + ' (computer)';
+    return soloHuman() ? 'You' : E.NAMES[seat];
+  }
+  const normLevel = (l) => (l === 'normal' ? 'hard' : l);
 
   /* ---------- Timing ---------- */
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -266,8 +267,8 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   /* ---------- Labels ---------- */
   function labelFor(seat) {
     if (flashes[seat]) return flashes[seat];
-    if (G.phase === 'over') return G.winner === seat ? 'Winner' : seatName(seat);
-    if (G.turn !== seat) return seatName(seat);
+    if (G.phase === 'over') return G.winner === seat ? 'Winner' : seatLabel(seat);
+    if (G.turn !== seat) return seatLabel(seat);
     if (E.isCpu(G, seat)) return 'Thinking';
     if (G.phase === 'opening') return 'Roll for a 6';
     if (G.phase === 'roll') return 'Tap to roll';
@@ -373,7 +374,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   function persist() {
     if (!G) return;
     if (G.phase === 'over') store.del(SAVE_KEY);
-    else store.set(SAVE_KEY, { mode, G });
+    else store.set(SAVE_KEY, { G });
   }
   const waitDice = (seat) => new Promise((res) => { pending = { kind: 'dice', seat, res }; setReady(seat, true); });
   const waitToken = (legal) => new Promise((res) => { pending = { kind: 'token', legal, res }; });
@@ -453,12 +454,11 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
     }
   }
 
-  function startGame(m, saved, level) {
+  function startGame(state) {
     run++;
     pending = null; sel = null;
     Object.keys(flashes).forEach((k) => delete flashes[k]);
-    mode = m;
-    G = saved || E.newGame(MODES[m].seats, MODES[m].cpu, { level: level || prefs.level });
+    G = state;
     hide($('#setup')); hide($('#win')); hide($('#menu')); hide($('#rules')); hide($('#stats')); hide($('#confirm'));
     window.LudoFX.stop();
     setPaused(false);
@@ -468,6 +468,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
     persist();
     loop(run);
   }
+  const sameAgain = () => startGame(E.newGame(G.seats, G.cpu, { level: normLevel(G.level) }));
 
   function tokensHome(seat) { return G.tokens[seat].filter((p) => p === E.FINISH).length; }
   function trophySvg(color) {
@@ -482,14 +483,14 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
     '<path d="M16 20v10M11 25h10M86 62v10M81 67h10" stroke="#d9a400" stroke-width="3" stroke-linecap="round"/></svg>';
 
   function showWin() {
-    const my = run, w = G.winner;
-    const computerWon = mode === '1p' && E.isCpu(G, w);
-    const humanWon1p = mode === '1p' && !computerWon;
-    $('#win-title').textContent = humanWon1p ? 'You win!' : computerWon ? 'Good game' : E.NAMES[w] + ' wins!';
-    $('#win-sub').textContent = humanWon1p ? 'Nicely played.' : computerWon ? 'The computer takes this one.' : 'Well played, everyone.';
-    $('#win-art').innerHTML = computerWon ? STAR_SVG : trophySvg(COLORS[w].main);
-    $('#w-again').textContent = computerWon ? 'Rematch' : 'Play again';
-    let rot = seatRot(w);
+    const my = run, w = G.winner, cpuWon = E.isCpu(G, w), solo = soloHuman();
+    $('#win-title').textContent = cpuWon ? 'Good game' : solo ? 'You win!' : E.NAMES[w] + ' wins!';
+    $('#win-sub').textContent = cpuWon
+      ? (G.cpu.length === 1 ? 'The computer takes this one.' : E.NAMES[w] + ', a computer player, takes this one.')
+      : solo ? 'Nicely played.' : 'Well played, everyone.';
+    $('#win-art').innerHTML = cpuWon ? STAR_SVG : trophySvg(COLORS[w].main);
+    $('#w-again').textContent = cpuWon ? 'Rematch' : 'Play again';
+    let rot = cpuWon ? 0 : seatRot(w);
     if ((rot === 90 || rot === 270) && Math.min(window.innerWidth, window.innerHeight) < 600) rot = 0;   // too small to turn sideways
     $('#win-card').style.setProperty('--rot', rot + 'deg');
 
@@ -499,7 +500,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
       const li = document.createElement('li');
       if (seat === w) li.className = 'first';
       const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = COLORS[seat].main;
-      const name = document.createElement('span'); name.textContent = seatName(seat);
+      const name = document.createElement('span'); name.textContent = seatFull(seat);
       const right = document.createElement('span'); right.className = 'right'; right.textContent = tokensHome(seat) + ' of 4 home';
       li.appendChild(dot); li.appendChild(name); li.appendChild(right);
       list.appendChild(li);
@@ -508,7 +509,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
     setTimeout(() => {
       if (my !== run) return;
       show($('#win'));
-      if (computerWon) { Snd.good(); window.LudoFX.consolation(); }
+      if (cpuWon) { Snd.good(); window.LudoFX.consolation(); }
       else { Snd.win(); window.LudoFX.celebrate([COLORS[w].main, COLORS[w].tint]); }
     }, reduceMotion ? 0 : 900);
   }
@@ -525,7 +526,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
       const block = document.createElement('div'); block.className = 'stat-block';
       const head = document.createElement('div'); head.className = 'stat-head';
       const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = COLORS[seat].main;
-      const nm = document.createElement('span'); nm.textContent = seatName(seat);
+      const nm = document.createElement('span'); nm.textContent = seatFull(seat);
       const meta = document.createElement('span'); meta.className = 'meta';
       meta.textContent = total + (total === 1 ? ' roll' : ' rolls') + (total ? ', average ' + avg.toFixed(1) : '');
       head.appendChild(dot); head.appendChild(nm); head.appendChild(meta);
@@ -577,28 +578,69 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   }
 
   /* ---------- Setup screen ---------- */
-  function glyph(m) {
-    const active = MODES[m].seats, spots = [[14, 38], [14, 14], [38, 14], [38, 38]];
-    let s = '<svg viewBox="0 0 52 52" aria-hidden="true">';
-    spots.forEach((p, seat) => {
-      s += active.indexOf(seat) !== -1
-        ? '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="10" fill="' + COLORS[seat].main + '"/>'
-        : '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="9" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="2" stroke-dasharray="3 3"/>';
-    });
-    return s + '</svg>';
+  const SIDES = ['bottom', 'left', 'top', 'right'];
+  const cfg = { people: prefs.people, computers: prefs.computers };
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  function normalizeCfg() {
+    cfg.people = clamp(Math.round(cfg.people) || 1, 1, 4);
+    cfg.computers = clamp(Math.round(cfg.computers) || 0, Math.max(0, 2 - cfg.people), 4 - cfg.people);
   }
+  // Changing one number nudges the other so the table always ends up with 2 to 4 players.
+  function setPeople(p) { cfg.people = p; normalizeCfg(); }
+  function setComputers(c) { cfg.computers = c; cfg.people = clamp(cfg.people, Math.max(1, 2 - c), 4 - c); normalizeCfg(); }
+  const listJoin = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+  const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+
+  function personIcon(x, y) {
+    return '<circle cx="' + x + '" cy="' + (y - 4) + '" r="4" fill="#fff"/><path d="M' + (x - 7) + ' ' + (y + 9) + 'c0-6.500 3.200-9 7-9s7 2.500 7 9z" fill="#fff"/>';
+  }
+  function robotIcon(x, y, color) {
+    return '<path d="M' + x + ' ' + (y - 7) + 'v-3" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="' + x + '" cy="' + (y - 11) + '" r="1.800" fill="#fff"/>' +
+      '<rect x="' + (x - 8) + '" y="' + (y - 6) + '" width="16" height="13" rx="3.500" fill="#fff"/>' +
+      '<circle cx="' + (x - 3.200) + '" cy="' + (y + 0.500) + '" r="1.900" fill="' + color + '"/><circle cx="' + (x + 3.200) + '" cy="' + (y + 0.500) + '" r="1.900" fill="' + color + '"/>';
+  }
+  function renderPicker() {
+    normalizeCfg();
+    document.querySelectorAll('#seg-people button').forEach((b) => b.setAttribute('aria-pressed', +b.getAttribute('data-n') === cfg.people ? 'true' : 'false'));
+    document.querySelectorAll('#seg-cpu button').forEach((b) => b.setAttribute('aria-pressed', +b.getAttribute('data-n') === cfg.computers ? 'true' : 'false'));
+    $('#level-row').hidden = cfg.computers === 0;
+
+    const lay = E.layout(cfg.people, cfg.computers);
+    const spots = [[80, 136], [24, 80], [80, 24], [136, 80]];    // bottom, left, top, right of the table
+    let svgText = '<rect class="pv-table" x="42" y="42" width="76" height="76" rx="14"/>';
+    for (let seat = 0; seat < 4; seat++) {
+      const p = spots[seat];
+      if (lay.seats.indexOf(seat) === -1) { svgText += '<circle class="pv-seat-off" cx="' + p[0] + '" cy="' + p[1] + '" r="18"/>'; continue; }
+      svgText += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="19" fill="' + COLORS[seat].main + '"/>';
+      svgText += lay.cpu.indexOf(seat) !== -1 ? robotIcon(p[0], p[1] + 1, COLORS[seat].main) : personIcon(p[0], p[1]);
+    }
+    $('#pv').innerHTML = svgText;
+    $('#pv-title').textContent = plural(cfg.people, 'person', 'people') + (cfg.computers ? ' and ' + plural(cfg.computers, 'computer', 'computers') : '');
+    const humanSeats = lay.seats.filter((x) => lay.cpu.indexOf(x) === -1);
+    const where = (x) => E.NAMES[x] + ' (' + SIDES[x] + ')';
+    $('#pv-cap').textContent = cfg.people === 1 ? 'You play ' + where(humanSeats[0]) + '.' : 'People sit at ' + listJoin(humanSeats.map(where)) + '.';
+  }
+  function startFromSetup() {
+    normalizeCfg();
+    prefs.people = cfg.people; prefs.computers = cfg.computers; savePrefs();
+    const lay = E.layout(cfg.people, cfg.computers);
+    startGame(E.newGame(lay.seats, lay.cpu, { level: prefs.level }));
+  }
+
   function readSave() {
     const s = store.get(SAVE_KEY);
-    if (!s || !s.G || s.G.v !== 1 || !MODES[s.mode] || !Array.isArray(s.G.seats) || s.G.phase === 'over') return null;
+    if (!s || !s.G || s.G.v !== 1 || !Array.isArray(s.G.seats) || !Array.isArray(s.G.cpu) || s.G.phase === 'over') return null;
     return s;
   }
   function renderResume() {
     const s = readSave(), btn = $('#resume');
     if (!s) { hide(btn); return; }
-    const m = s.mode, g = s.G, cpuTurn = g.cpu.indexOf(g.turn) !== -1;
-    const who = m === '1p' ? (cpuTurn ? "the computer's turn" : 'your turn') : E.NAMES[g.turn] + "'s turn";
-    const lvl = m === '1p' ? ' (' + (LEVELS[g.level] || 'Medium') + ')' : '';
-    $('#resume-cap').textContent = MODES[m].label + lvl + ', ' + who;
+    const g = s.G, humans = g.seats.length - g.cpu.length, cpus = g.cpu.length;
+    const who = humans === 1
+      ? (g.cpu.indexOf(g.turn) === -1 ? 'your turn' : (cpus === 1 ? "the computer's turn" : E.NAMES[g.turn] + "'s turn"))
+      : E.NAMES[g.turn] + "'s turn";
+    const players = plural(humans, 'person', 'people') + (cpus ? ' and ' + plural(cpus, 'computer', 'computers') + ' (' + (LEVELS[g.level] || 'Medium') + ')' : '');
+    $('#resume-cap').textContent = players + ', ' + who;
     show(btn);
   }
 
@@ -635,14 +677,16 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
   /* ---------- Wire up ---------- */
   function init() {
     buildBoard();
-    document.querySelectorAll('[data-glyph]').forEach((n) => { n.innerHTML = glyph(n.getAttribute('data-glyph')); });
-    document.querySelectorAll('.mode').forEach((b) => b.addEventListener('click', () => { Snd.init(); startGame(b.getAttribute('data-mode')); }));
-    $('#resume').addEventListener('click', () => { Snd.init(); const s = readSave(); if (s) startGame(s.mode, s.G); });
-    document.querySelectorAll('.seg button').forEach((b) => {
+    document.querySelectorAll('#seg-people button').forEach((b) => b.addEventListener('click', () => { setPeople(+b.getAttribute('data-n')); renderPicker(); }));
+    document.querySelectorAll('#seg-cpu button').forEach((b) => b.addEventListener('click', () => { setComputers(+b.getAttribute('data-n')); renderPicker(); }));
+    $('#start').addEventListener('click', () => { Snd.init(); startFromSetup(); });
+    renderPicker();
+    $('#resume').addEventListener('click', () => { Snd.init(); const s = readSave(); if (s) startGame(s.G); });
+    document.querySelectorAll('.seg button[data-level]').forEach((b) => {
       b.setAttribute('aria-pressed', b.getAttribute('data-level') === prefs.level ? 'true' : 'false');
       b.addEventListener('click', () => {
         prefs.level = b.getAttribute('data-level'); savePrefs();
-        document.querySelectorAll('.seg button').forEach((o) => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
+        document.querySelectorAll('.seg button[data-level]').forEach((o) => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
       });
     });
 
@@ -667,7 +711,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
     $('#m-full').addEventListener('click', toggleFullscreen);
     $('#m-restart').addEventListener('click', async () => {
       hide($('#menu'));
-      if (await ask('Restart this game?', 'Everyone starts again from the beginning.', 'Restart')) startGame(mode, null, G.level === 'normal' ? 'hard' : G.level);
+      if (await ask('Restart this game?', 'Everyone starts again from the beginning.', 'Restart')) sameAgain();
       else closeSheet('confirm');
     });
     $('#m-players').addEventListener('click', async () => {
@@ -677,7 +721,7 @@ const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', normal: 'Hard' };
     });
     $('#c-ok').addEventListener('click', () => answer(true));
     $('#c-cancel').addEventListener('click', () => answer(false));
-    $('#w-again').addEventListener('click', () => startGame(mode, null, G.level === 'normal' ? 'hard' : G.level));
+    $('#w-again').addEventListener('click', sameAgain);
     $('#w-change').addEventListener('click', showSetup);
     ['menu', 'rules', 'stats'].forEach((id) => $('#' + id).addEventListener('click', (e) => { if (e.target === e.currentTarget) closeSheet(id); }));
 

@@ -1,6 +1,6 @@
-# Ludo (family PWA), revision 2
+# Ludo (family PWA), revision 3
 
-A light, offline-capable Ludo for iPad and iPhone. 1 player (vs computer), 2, 3 or 4 players.
+A light, offline-capable Ludo for iPad and iPhone. Choose how many people and how many computers play (2 to 4 players in total).
 No frameworks, no build step, no accounts. Everything is in this folder.
 
 ## Try it on your computer
@@ -16,8 +16,8 @@ Netlify, Cloudflare Pages or GitHub Pages all work. Then on each device:
 3. Open Ludo from the Home Screen (it runs full screen and works offline after the first load).
 
 ## Publishing a change
-Edit the files, bump `CACHE = 'ludo-v2'` in `sw.js` to `ludo-v3` (and so on), and upload again.
-Revision 1 copies show an "Update" banner; tap it once and the new version loads.
+Edit the files, bump `CACHE = 'ludo-v3'` in `sw.js` to `ludo-v4` (and so on), and upload again.
+Installed copies show an "Update" banner; tap it once and the new version loads.
 Installed copies show an "Update" banner the next time they open online.
 
 ## House rules (all in engine.js)
@@ -27,6 +27,14 @@ Installed copies show an "Update" banner the next time they open online.
 - Landing on an unsafe square captures every opponent token there. No blockades.
 - Exact roll to finish. First to bring all 4 tokens home wins.
 - At the start, everyone rolls in turn until someone gets a 6. That player goes first and the 6 counts.
+
+## What's new in revision 3
+- The setup screen now has two pickers, People (1 to 4) and Computers (0 to 3), with 2 to 4 players in total.
+  Changing one nudges the other so the table always adds up. A small table preview shows who sits where.
+- People take the bottom seat first, then top, left, right, so two people face each other. Computers fill the remaining seats.
+  With one person everything faces them; with two or more, each seat's dice and label face its side of the table.
+- Play again, Rematch and Restart keep the same players and computer level.
+- Saved games from earlier revisions still resume.
 
 ## What's new in revision 2
 - Difficulty: Easy (random moves), Medium (best move half the time), Hard (always the best move). Medium is the default.

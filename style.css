@@ -355,3 +355,23 @@ body.clean #peek { display: grid; }
 .results .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
 .results .right { margin-left: auto; color: var(--muted); font-size: 14px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .win-art .bob { animation: none; } }
+
+
+/* ---------- Revision 3: choose people and computers ---------- */
+.picker { display: flex; flex-direction: column; gap: 10px; }
+.pick-row { display: flex; align-items: center; gap: 12px; }
+.pick-label { font-size: 18px; font-weight: 700; min-width: 108px; }
+.seg.wide { flex: 1; }
+.seg.wide button { flex: 1; padding: 12px 0; font-size: 20px; }
+.preview { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.preview svg { width: min(190px, 46vw); height: auto; }
+.pv-table { fill: var(--panel); stroke: var(--panel-line); stroke-width: 2; }
+.pv-seat-off { fill: none; stroke: var(--muted); stroke-opacity: 0.45; stroke-width: 2; stroke-dasharray: 4 4; }
+.pv-title { margin: 4px 0 0; font-size: 20px; font-weight: 750; text-align: center; }
+.pv-cap { margin: 0; font-size: 15px; color: var(--muted); text-align: center; }
+.btn.start { justify-content: center; font-size: 20px; padding: 16px; }
+@media (max-height: 520px) and (orientation: landscape) { .preview svg { width: 104px; } }
+
+/* Dice are focusable for keyboards; the glow is our focus indicator, so hide the browser's default ring around the whole group */
+#board .die:focus, #board .die:focus-visible, #board .token:focus, #board .token:focus-visible { outline: none; }
+#board .die:focus-visible .glow { opacity: 0.9; stroke: #2f6fdd; }
